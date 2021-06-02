@@ -1,0 +1,4 @@
+*~
+*.log
+.clean-build
+.incremental-build
