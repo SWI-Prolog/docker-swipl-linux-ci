@@ -1,0 +1,8 @@
+# Download SWI-Prolog
+RUN	mkdir -p /opt/src && \
+	cd /opt/src && \
+	git clone https://github.com/SWI-Prolog/swipl-devel.git && \
+	cd swipl-devel && \
+	git submodule update --init
+
+WORKDIR /opt/src/swipl-devel

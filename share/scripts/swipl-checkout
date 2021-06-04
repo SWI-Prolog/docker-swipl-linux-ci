@@ -1,0 +1,26 @@
+#!/bin/bash
+
+cd /opt/src/swipl-devel
+git pull
+git submodule update --init
+
+done=false
+while [ $done = false ]; do
+  case "$1" in
+    -b)	git checkout $2 || exit 1
+	git submodule update --init
+	shift
+	shift
+	;;
+    -p) git -C packages/$2 checkout $3 || exit 1
+        shift
+	shift
+	shift
+	;;
+     *) done=true
+	;;
+  esac
+done
+
+
+

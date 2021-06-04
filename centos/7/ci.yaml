@@ -1,0 +1,17 @@
+# CentOS 7 defaults
+
+default:
+  generator:
+    cmake: Unix Makefiles
+    command: gmake
+  cmake_env:
+    CFLAGS: -std=gnu99
+  ctest_env:
+    LANG: en_US.utf8
+
+configs:
+  - full:
+      comment: Default complete build
+  - pgo:
+      comment: PGO optimized buil
+      cmake_flags: -DCMAKE_BUILD_TYPE=PGO

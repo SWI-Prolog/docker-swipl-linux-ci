@@ -1,4 +1,4 @@
 *~
 *.log
-.clean-build
-.incremental-build
+scripts.tgz
+Dockerfile.*

@@ -1,0 +1,11 @@
+FROM debian:10
+
+RUN	apt-get update
+
+# SWI-Prolog dependencies
+RUN	apt-get install -y git build-essential cmake ninja-build pkg-config \
+        ncurses-dev libreadline-dev libedit-dev libgoogle-perftools-dev \
+        libgmp-dev libssl-dev unixodbc-dev zlib1g-dev libarchive-dev \
+        libossp-uuid-dev libxext-dev libice-dev libjpeg-dev libxinerama-dev \
+	libxft-dev libxpm-dev libxt-dev \
+        libdb-dev libpcre3-dev libyaml-dev default-jdk junit4

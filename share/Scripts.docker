@@ -1,0 +1,7 @@
+
+# Scripts for incremental building and testing
+
+COPY	scripts.tgz /opt/scripts.tgz
+RUN	mkdir -p /opt/bin && \
+	tar -C /opt/bin -zxf /opt/scripts.tgz && \
+	rm /opt/scripts.tgz

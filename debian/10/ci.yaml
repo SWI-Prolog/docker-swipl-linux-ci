@@ -1,0 +1,15 @@
+# Debian defaults
+
+default:
+  generator:
+    cmake: Ninja
+    command: ninja
+  ctest_env:
+      LANG: C.UTF-8
+
+configs:
+  - full:
+      comment: Default complete build
+  - pgo:
+      comment: PGO optimized buil
+      cmake_flags: -DCMAKE_BUILD_TYPE=PGO
