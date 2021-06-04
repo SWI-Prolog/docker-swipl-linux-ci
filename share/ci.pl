@@ -1,20 +1,40 @@
 :- module(ci,
           [ test_base/3,     % +OS,+Tag,-Base
-            test/6	     % +OS,+Tag,+Type,+Branch,+PackageBranches,+Configs
+            test/6,          % +OS,+Tag,+Type,+Branch,+PackageBranches,+Configs
+            current_test/3   % ?OS,?Tag,-Configs
           ]).
-:- autoload(library(apply), [maplist/2, maplist/3]).
-:- autoload(library(dicts), [dict_keys/2]).
-:- autoload(library(filesex), [directory_file_path/3]).
-:- autoload(library(lists), [selectchk/3, append/2, append/3]).
-:- autoload(library(option), [option/2]).
-:- autoload(library(pairs), [pairs_values/2]).
-:- autoload(library(process), [process_create/3, process_wait/2]).
-:- autoload(library(yaml), [yaml_read/2]).
+:- use_module(library(apply), [maplist/2, maplist/3]).
+:- use_module(library(dicts), [dict_keys/2]).
+:- use_module(library(filesex), [directory_file_path/3, directory_member/3]).
+:- use_module(library(lists), [selectchk/3, append/2, append/3]).
+:- use_module(library(option), [option/2]).
+:- use_module(library(pairs), [pairs_values/2]).
+:- use_module(library(process), [process_create/3, process_wait/2]).
+:- use_module(library(yaml), [yaml_read/2]).
+:- use_module(library(error), [must_be/2]).
 
 :- multifile
     user:file_search_path/2.
 
 user:file_search_path(share, share).
+
+%!  current_test(?OS, ?Tag, -Configs) is nondet.
+%
+%   Enumerate all available test configurations. Configs   is  a list of
+%   config ids as provided by `ci.yaml` in the OS/Tag directory.
+
+current_test(OS, Tag, Configs) :-
+    directory_member(., OS, [file_type(directory)]),
+    directory_member(OS, TagDir, [file_type(directory)]),
+    file_base_name(TagDir, Tag),
+    directory_file_path(TagDir, 'ci.yaml', CI),
+    exists_file(CI),
+    config_dict(TagDir, ConfigDict),
+    maplist(yaml_config, ConfigDict.configs, Configs).
+
+yaml_config(ConfigDict, Config) :-
+    dict_keys(ConfigDict, [Config]).
+
 
 %!  test_base(+OS, +Tag, -Base) is det.
 %
