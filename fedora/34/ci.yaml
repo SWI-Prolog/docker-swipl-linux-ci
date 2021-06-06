@@ -11,5 +11,5 @@ configs:
   - full:
       comment: Default complete build
   - pgo:
-      comment: PGO optimized buil
+      comment: PGO optimized build
       cmake_flags: -DCMAKE_BUILD_TYPE=PGO

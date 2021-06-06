@@ -5,4 +5,5 @@ RUN	mkdir -p /opt/src && \
 	cd swipl-devel && \
 	git submodule update --init
 
-WORKDIR /opt/src/swipl-devel
+ENV	SWIPL_SRC=/opt/src/swipl-devel
+WORKDIR $SWIPL_SRC

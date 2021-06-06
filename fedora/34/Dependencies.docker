@@ -11,4 +11,4 @@ RUN	dnf -y install git cmake ninja-build gcc gcc-c++ \
 	libXinerama-devel libXmu-devel libXpm-devel libXrender-devel \
 	libXt-devel ncurses-devel openssl-devel pkgconfig readline-devel libedit-devel \
 	unixODBC-devel zlib-devel uuid-devel libarchive-devel libyaml-devel libdb-devel \
-	openssl
+	openssl junit
