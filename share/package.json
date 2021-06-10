@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "bootstrap": "twbs/bootstrap#3",
+    "jquery": "jquery/jquery-dist#>= 1.0.0",
+    "laconic": "joestelmach/laconic#*",
+    "requirejs": "jrburke/requirejs-bower#*",
+    "tabulator-tables": "*"
+  },
+  "engines": {
+    "yarn": ">= 1.0.0"
+  },
+  "scripts": {
+  }
+}

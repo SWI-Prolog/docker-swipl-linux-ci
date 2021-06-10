@@ -1,18 +1,59 @@
 #!/bin/bash
 
-cd /opt/src/swipl-devel
-git pull
-git submodule update --init
+# cd /opt/src/swipl-devel
+git fetch
+git reset --hard origin/master
+
+add_remote()
+{ rm="$1"
+  url="$2"
+  if ! (git remote | grep -qw $rm); then
+    git remote add "$1" "$2"
+  fi
+}
+
+checkout_branch()
+{ if ! (git branch | grep -qw $1); then
+    git branch $1
+  fi
+  git checkout $1
+}
+
+force_branch()
+{ dir=$1
+  branch=$2
+
+  case "$2" in
+    */*) rm=$(echo $2 | sed 's@/.*@@')
+	 br=$(echo $2 | sed 's@.*/@@')
+	 ;;
+    *)   rm=origin
+         br=$2
+	 ;;
+  esac
+
+  ( cd $dir &&
+    git fetch $rm &&
+    checkout_branch $rm-$br &&
+    git reset --hard $rm/$br -- &&
+    git submodule update
+  )
+}
+
 
 done=false
 while [ $done = false ]; do
   case "$1" in
-    -b)	git checkout $2 || exit 1
-	git submodule update --init
+    -r) add_remote $2 $3 || exit 1
+        shift
 	shift
 	shift
 	;;
-    -p) git -C packages/$2 checkout $3 || exit 1
+    -b)	force_branch . $2 || exit 1
+	shift
+	shift
+	;;
+    -p) force_branch packages/$2 $3 || exit 1
         shift
 	shift
 	shift
@@ -21,6 +62,3 @@ while [ $done = false ]; do
 	;;
   esac
 done
-
-
-

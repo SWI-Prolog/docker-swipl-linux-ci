@@ -6,13 +6,16 @@
 :- use_module(library(broadcast)).
 :- use_module(ci_redis).
 
-:- thread_create(xlisten(ci, ['ci:request'], []), _,
-                 [ alias(ci_requests)
-                 ]).
-:- listen(redis(_Redis, 'ci:request', _Id, Data),
-          ci(Data)).
-:- listen(build(Status),
-          store(Status)).
+:- initialization(init_services, program).
+
+init_services :-
+    thread_create(xlisten(ci, ['ci:request'], []), _,
+                  [ alias(ci_requests)
+                  ]),
+    listen(redis(_Redis, 'ci:request', _Id, Data),
+           ci(Data)),
+    listen(build(Status),
+           store(Status)).
 
 ci(Data) :-
     _{os:OS, tag:Tag} :< Data,
@@ -27,4 +30,6 @@ ci(Data) :-
     ).
 
 store(Dict) :-
+    debug(event, 'Seding event ~p', [Dict]),
+    redis(ci, publish(ci:event, prolog(Dict))),
     xadd(ci, ci:results, _Id, Dict).

@@ -2,3 +2,5 @@
 *.log
 scripts.tgz
 Dockerfile.*
+node_modules
+yarn.lock

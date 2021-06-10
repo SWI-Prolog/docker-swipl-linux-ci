@@ -1,0 +1,6 @@
+remotes:
+  - origin:
+      url: https://github.com/SWI-Prolog/swipl-devel.git
+  - dmchurch:
+      url: https://github.com/dmchurch/swipl-devel.git
+

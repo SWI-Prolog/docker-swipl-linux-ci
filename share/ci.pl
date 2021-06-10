@@ -15,6 +15,7 @@
 :- use_module(library(error), [must_be/2]).
 :- use_module(library(broadcast), [broadcast/1]).
 :- use_module(library(dcg/basics), [float/3, whites/2, nonblanks/3]).
+:- use_module(config).
 
 :- multifile
     user:file_search_path/2.
@@ -67,7 +68,8 @@ generate_docker_file(Out, OS, Tag) :-
     copy_file_to(Out, share('Scripts.docker')),
     copy_file_to(Out, share('Download.docker')),
     config_dict(Dir, Config),
-    maplist(docker_config(Out, OS, Tag, Config.default, _, _), Config.configs).
+    maplist(docker_config(Out, OS, Tag, Config.default, _, _, docker),
+            Config.configs).
 
 docker_ignore_cache(Out) :-
     format(Out, '# Force ignoring the Docker cache~n', []),
@@ -82,7 +84,10 @@ config_dict(Dir, Config) :-
     directory_file_path(Dir, 'ci.yaml', CI),
     yaml_read(CI, Config).
 
-docker_config(Out, OS, Tag, Defaults, Steps, Configs, ConfigDict) :-
+%! docker_config(+Out, +OS, +Tag, +DefaultDict, +Steps, +Configs,
+%!               +Format, +ConfigDict)
+
+docker_config(Out, OS, Tag, Defaults, Steps, Configs, Format, ConfigDict) :-
     dict_keys(ConfigDict, [Config]),
     (   Configs == all
     ->  true
@@ -95,9 +100,10 @@ docker_config(Out, OS, Tag, Defaults, Steps, Configs, ConfigDict) :-
 
     Date = "$(date +%s.%N)",
     GitVersion = "$(git describe)",
+    Branch = "$(git rev-parse --abbrev-ref HEAD)",
     CC = "$(/opt/bin/cc-version)",
 
-    Start =     [ [ echo, '@@START:', OS, Tag, Config, Date, GitVersion ]
+    Start =     [ [ echo, '@@START:', OS, Tag, Config, Date, Branch, GitVersion ]
                 ],
 
     Configure = [ [ cd, "$SWIPL_SRC" ],
@@ -108,37 +114,38 @@ docker_config(Out, OS, Tag, Defaults, Steps, Configs, ConfigDict) :-
                            '-G', Options.generator.cmake,
                            '..'
                   ] - Options.cmake_env,
-                  [ echo, '@@PASSED:', OS, Tag, Config, Date, GitVersion, CC, configure ]
+                  [ echo, '@@PASSED:', OS, Tag, Config, Date, Branch, GitVersion, CC, configure ]
                 ],
 
     Build =     [ [ cd, BuildDirArg ],
-                  [ Options.generator.command ],
-                  [ echo, '@@PASSED:', OS, Tag, Config, Date, GitVersion, CC, build ]
+                  [ +Options.generator.command ],
+                  [ echo, '@@PASSED:', OS, Tag, Config, Date, Branch, GitVersion, CC, build ]
                 ],
 
     Test =	[ [ cd, BuildDirArg ],
                   [ ctest, '-j', '$(nproc)', '--output-on-failure'
                   ] - Options.ctest_env,
-                  [ echo, '@@PASSED:', OS, Tag, Config, Date, GitVersion, CC, test ]
+                  [ echo, '@@PASSED:', OS, Tag, Config, Date, Branch, GitVersion, CC, test ]
                 ],
 
     Bench =	[ [ cd, BuildDirArg ],
                   [ echo, '@@BENCH:', begin ],
                   [ 'src/swipl', '../bench/run.pl', '--csv' ],
-                  [ echo, '@@BENCH:', end, bench, OS, Tag, Config, Date, GitVersion, CC ]
+                  [ echo, '@@BENCH:', end, bench, OS, Tag, Config, Date, Branch, GitVersion, CC ]
                 ],
 
-    format(Out, '~N~n# Configuration ~w: ~s~n', [Config, Options.comment]),
+    docker_comment(Out, '~N~n# Configuration ~w: ~s~n',
+                   [Config, Options.comment], Format),
     if_step(configure, Steps, Configure, C1),
     if_step(build,     Steps, Build,     C2),
     if_step(bench,     Steps, Bench,     C3),
     if_step(test,      Steps, Test,      C4),
     append([Start,C1,C2,C3,C4], Commands),
-    docker_command(Out, Commands,
-                   [ echo, '@@FAILED:', OS, Tag, Config, Date, GitVersion, CC ]).
-
-
-docker_config(_Out, _OS, _Tag, _Defaults, _Steps, _Configs, _ConfigDict).
+    docker_command(
+        Out, Commands,
+        [ echo, '@@FAILED:', OS, Tag, Config, Date, Branch, GitVersion, CC ],
+        Format).
+docker_config(_Out, _OS, _Tag, _Defaults, _Steps, _Configs, _Format, _ConfigDict).
 
 if_step(Step, Steps, Commands0, Commands) :-
     (   memberchk(Step, Steps)
@@ -192,56 +199,63 @@ config(comment,     override, "no comment").
 %   list may contain configurations that  are   not  defined in ci.yaml.
 %   Such configurations are ignored.
 
-test(OS, Tag, Type, Branch, PackageBranches, Configs) :-
+test(OS, Tag, Type, Branch, PackageBranches, all) =>
+    current_test(OS, Tag, Configs),
+    test(OS, Tag, Type, Branch, PackageBranches, Configs).
+test(OS, Tag, Type, Branch, PackageBranches, Configs) =>
     must_be(oneof([clean,incremental]), Type),
-    test_docker_file(OS, Tag, Type, Branch, PackageBranches, Configs,
-                     Dockerfile, Image),
-    docker_build(Dockerfile, Image).
+    maplist(test_config(OS, Tag, Type, Branch, PackageBranches),
+            Configs).
 
-test_docker_file(OS, Tag, Type, Branch, PackageBranches, Configs,
-                 Dockerfile, Image) :-
-    test_image_id(OS, Tag, Image),
-    format(atom(DockerBase), 'Dockerfile.~w', [Image]),
+test_config(OS, Tag, Type, Branch, PackageBranches, Config) :-
+    with_output_to(
+        string(Command),
+        test_command(current_output,
+                     OS, Tag, Type, Branch, PackageBranches, Config)),
     os_dir(OS, Tag, Dir),
-    directory_file_path(Dir, DockerBase, Dockerfile),
-    setup_call_cleanup(
-        open(Dockerfile, write, Out),
-        test_docker_file_2(Out, OS, Tag, Type, Branch, PackageBranches, Configs, Image),
-        close(Out)).
-
-test_image_id(OS, Tag, Image) :-
-    redis(ci, incr(build:OS:Tag), Num),
-    format(atom(Image), 'swipl-~w-~w-build-~w', [OS, Tag, Num]).
-
-test_docker_file_2(Out, OS, Tag, Type, Branch, PackageBranches, Configs, Image) :-
+    build_id(OS, Tag, Config, BuildID),
     base_image(OS, Tag, Base),
-    copy_file_to(Out, share('Header.docker')),
-    format(Out, 'FROM ~w~n~n', [Base]),
-    format(Out, '# Force ignoring the Docker cache~n', []),
-    docker_command(Out,
-                   [ [ echo, Image ]
-                   ]),
+    format(atom(LogFile), '~w/~w.log', [Dir, BuildID]),
+    docker_run(Dir,
+               [run, '-it', '--rm', Base, '/bin/bash', '-c', Command],
+               LogFile).
+
+test_command(Out, OS, Tag, Type, Branch, PackageBranches, Config) :-
     checkout_version_command(Out, Branch, PackageBranches),
+    connect(Out, '&&', shell),
     os_dir(OS, Tag, Dir),
-    config_dict(Dir, Config),
+    config_dict(Dir, OSConfig),
     type_steps(Type, Steps),
-    maplist(docker_config(Out, OS, Tag, Config.default,
+    maplist(docker_config(Out, OS, Tag, OSConfig.default,
                           Steps,
-                          Configs), Config.configs).
+                          [Config], shell), OSConfig.configs).
+
+build_id(OS, Tag, Config, BuildID) :-
+    redis(ci, incr(build:OS:Tag:Config), Num),
+    format(atom(BuildID), 'swipl-~w-~w-~w-build-~w', [OS, Tag, Config, Num]).
 
 type_steps(incremental, [build, bench, test]).
 type_steps(clean,       [configure, build, bench, test]).
 
 checkout_version_command(Out, Branch, PackageBranches) :-
+    (   atomic_list_concat([Remote, _RBranch], /, Branch)
+    ->  true
+    ;   Remote = origin
+    ),
+    (   remote(Remote, RemoteURL)
+    ->  true
+    ;   existence_error(remote, RemoteURL)
+    ),
     dict_pairs(PackageBranches, _, Pairs),
     maplist(pkg_checkout_cmd, Pairs, Cmds),
     append(Cmds, PkgsCmd),
     docker_command(Out,
                    [ [ '/opt/bin/swipl-checkout',
+                       '-r', Remote, RemoteURL,
                        '-b', Branch
                      | PkgsCmd
                      ]
-                   ]).
+                   ], [], shell).
 
 pkg_checkout_cmd(Pkg-Branch, ['-p', Pkg, Branch]).
 
@@ -250,29 +264,41 @@ pkg_checkout_cmd(Pkg-Branch, ['-p', Pkg, Branch]).
 		 *           PROCESSES		*
 		 *******************************/
 
-%!  docker_command(+Out, +Command, +Or)
+%!  docker_command(+Out, +Command, +Or, +Format)
 
 docker_command(Out, Command) :-
-    docker_command(Out, Command, []).
+    docker_command(Out, Command, [], docker).
 
-docker_command(Out, Command, Or) :-
+docker_command(Out, Command, Or, docker) =>
     format(Out, '~N~nRUN\t', []),
-    docker_command_lines(Out, Command, Or).
+    docker_command_lines(Out, Command, Or, docker).
+docker_command(Out, Command, Or, shell) =>
+    docker_command_lines(Out, Command, Or, shell).
 
-docker_command_lines(_, [], _) :-
+docker_command_lines(_, [], _, _) :-
     !.
-docker_command_lines(Out, [H|T], Or) :-
+docker_command_lines(Out, [H|T], Or, Format) :-
     docker_command_line(Out, H),
     (   T == []
     ->  (   Or == []
-        ->  nl(Out)
-        ;   format(Out, ' || \\~n\t', []),
+        ->  command_end(Out, Format)
+        ;   connect(Out, '||', Format),
             docker_command_line(Out, Or),
             nl(Out)
         )
-    ;   format(Out, ' && \\~n\t', []),
-        docker_command_lines(Out, T, Or)
+    ;   connect(Out, '&&', Format),
+        docker_command_lines(Out, T, Or, Format)
     ).
+
+connect(Out, Connector, docker) =>
+    format(Out, ' ~w \\~n~t', [Connector]).
+connect(Out, Connector, shell) =>
+    format(Out, ' ~w ', [Connector]).
+
+command_end(Out, docker) =>
+    nl(Out).
+command_end(_Out, shell) =>
+    true.
 
 docker_command_line(Out, Parts-Env) :-
     !,
@@ -301,6 +327,11 @@ shell_quote(Arg, Arg).
 
 env_command(Out, Name-Value) :-
     format(Out, '~w="~w" ', [Name,Value]).
+
+docker_comment(Out, Fmt, Args, docker) =>
+    format(Out, Fmt, Args).
+docker_comment(_Out, _Fmt, _Args, shell) =>
+    true.
 
 prepare_context(OS, Tag) :-
     os_dir(OS, Tag, Dir),
@@ -343,6 +374,9 @@ docker_build(Dockerfile, Image) :-
     file_name_extension(Image, log, LogImage),
     directory_file_path(Dir, LogImage, LogFile),
     Argv = [ build, '-t', Image, '-f', File, '.' ],
+    docker_run(Dir, Argv, LogFile).
+
+docker_run(Dir, Argv, LogFile) :-
     process_create(path(docker), Argv,
                    [ stdout(pipe(Out)),
                      stderr(pipe(Error)),
@@ -356,6 +390,7 @@ docker_build(Dockerfile, Image) :-
     ->  true
     ;   throw(error(process_error(process(docker, Argv), Status), _))
     ).
+
 
 relay_output(LogFile, Streams) :-
     setup_call_cleanup(
@@ -430,10 +465,11 @@ string([H|T]) --> [H], string(T).
 
 status_output(Stream) -->
     { benchmarks },
-    string(Codes), "\n",
+    string(Codes), eol,
     { \+ phrase((string(_), "@@BENCH:"), Codes, _),
       !,
       string_codes(String, Codes),
+      debug(bench, 'Got benchmark line ~p', [String]),
       assertz(bench_line(String))
     },
     status_output(Stream).
@@ -452,22 +488,30 @@ status_message(Stream) -->
     "FAILED:", status_params_cc(failed, Dict, Stream),
     { broadcast(build(Dict)) }.
 status_message(_) -->
-    "BENCH: begin\n",
-    { asserta(benchmarks) }.
+    "BENCH: begin", eol,
+    { debug(bench, 'Starting capturing benchmark output', []),
+      asserta(benchmarks)
+    }.
 status_message(Stream) -->
     "BENCH: end",
     msg_atom(Set),
     status_params_cc(bench, Dict, Stream),
     { retractall(benchmarks),
+      debug(bench, 'Collecting benchmark set ~p', [Set]),
       findall(Line, retract(bench_line(Line)), Lines),
       atomics_to_string(Lines, "\n", Output),
       broadcast(build(Dict.put(_{set:Set, csv:Output})))
     }.
+status_message(_Stream) -->
+    string(Codes), "\n",
+    { debug(status, 'Ignored: @@~s', [Codes]) }.
 
 status_params(Event,
-              _{file:File, event:Event, os:OS, tag:Tag, config:Config, time:Time, version:Version},
+              _{file:File, event:Event, os:OS, tag:Tag, config:Config,
+                time:Time, branch:Branch, version:Version},
               Stream) -->
-    msg_atom(OS), msg_atom(Tag), msg_atom(Config), msg_time(Time), msg_version(Version),
+    msg_atom(OS), msg_atom(Tag), msg_atom(Config),
+    msg_time(Time), msg_atom(Branch), msg_version(Version),
     {   stream_property(Stream, file_name(File))
     ->  true
     ;   File = '-'
@@ -482,6 +526,9 @@ status_params_cc(Event, Dict, Stream) -->
 msg_atom(Atom)       --> whites, nonblanks(Codes), {atom_codes(Atom, Codes)}.
 msg_time(Time)       --> whites, float(Time).
 msg_version(Version) --> whites, nonblanks(Codes), {string_codes(Version, Codes)}.
+
+eol --> "\r\n", !.
+eol --> "\n".
 
 
 		 /*******************************
