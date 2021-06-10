@@ -4,6 +4,7 @@
 :- use_module(library(http/http_server)).
 :- use_module(library(http/html_write)).
 :- use_module(library(http/http_json)).
+:- use_module(library(http/http_authenticate), []).
 :- use_module(library(dcg/high_order)).
 :- use_module(library(apply)).
 :- use_module(library(lists)).
@@ -14,6 +15,9 @@
 :- use_module(library(error)).
 :- use_module(library(filesex)).
 :- use_module(library(option)).
+:- use_module(library(broadcast)).
+:- use_module(library(git)).
+:- use_module(library(readutil)).
 
 :- use_module(ci).
 :- use_module(ci_client).
@@ -26,18 +30,25 @@ server(Port) :-
 
 :- http_handler(root(.),
                 http_redirect(see_other, ci(home)), []).
-:- http_handler(ci(home),              home,               []).
+:- http_handler(ci(home),              home(guest),        []).
+:- http_handler(ci(dev),               home(dev),
+                [ authentication(basic(passwd, 'Developer'))
+                ]).
 :- http_handler(ci(view_log),          view_log,           []).
+:- http_handler(ci(build),             http_404([]),
+                [ authentication(basic(passwd, 'Developer')),
+                  prefix
+                ]).
 :- http_handler(ci(build/incremental), build(incremental), [ prefix]).
 :- http_handler(ci(build/clean),       build(clean),       [ prefix]).
 :- http_handler(ci(build/base),        build(base),        [ prefix]).
-:- http_handler(ci(build/event),       build_event,        []).
+:- http_handler(ci(event),             build_event,        []).
 :- http_handler(ci(branches),          remote_branches,    [ prefix ]).
 :- http_handler(ci('recent-builds'),   recent_builds,      []).
 
-home(_Request) :-
+home(Role, _Request) :-
     reply_html_page(title('SWI-Prolog Continuous integration status'),
-                    \home_page([])).
+                    \home_page([role(Role)])).
 
 home_page(Options) -->
     ci_resources,
@@ -72,19 +83,19 @@ collapsed_button -->
                   span(class('icon-bar'), [])
                 ])).
 
-content(_Options) -->
+content(Options) -->
     html(h1('SWI-Prolog Continuous integration status')),
     { builds(Dicts),
       reverse(Dicts, Builds)
     },
-    summary_table(Builds),
+    summary_table(Builds, Options),
     build_table(Builds).
 
-%!  summary_table(Builds)//
+%!  summary_table(+Builds, +Options)//
 %
 %   Lists known OS/Tag and configurations
 
-summary_table(Builds) -->
+summary_table(Builds, Options) -->
     { findall(c(OS,Tag,Configs), current_test(OS, Tag, Configs), Triples),
       maplist(arg(3), Triples, CLists),
       append(CLists, AllConfigs),
@@ -93,13 +104,15 @@ summary_table(Builds) -->
       sort(OS0, OS)
     },
     html(table(class([table, results, 'table-condensed', 'table-bordered']),
-               [ tr([th('OS'),th('Version')|\sequence(th_config, CCols)])
-               | \sequence(os(Triples, CCols, Builds), OS)
+               [ tr([th('OS'),th('Version')|\sequence(th_config(Options), CCols)])
+               | \sequence(os(Triples, CCols, Builds, Options), OS)
                ])),
     html(div(class('build-options'),
-             \update_buttons)).
+             \update_buttons(Options))).
 
-update_buttons -->
+update_buttons(Options) -->
+    { option(role(dev), Options) },
+    !,
     select_remote,
     update_button(incremental, config,
                   'btn-primary',
@@ -111,6 +124,8 @@ update_buttons -->
                   'btn-warning',
                   'Update OS and base image'),
     html(div(id('build-events'), [])).
+update_buttons(_) -->
+    [].
 
 select_remote -->
     { findall(R, remote(R,_), Rs) },
@@ -138,12 +153,12 @@ update_button(Type, Rebuild, BtnType, Label) -->
                span([class('build-status')], [])
              ])).
 
-th_config(Config) -->
-    html(th([\check('config:', config, Config), ' ', Config])).
+th_config(Options, Config) -->
+    html(th([\check('config:', config, Config, Options), ' ', Config])).
 
-os(Triples, AllConfigs, Builds, OS) -->
+os(Triples, AllConfigs, Builds, Options, OS) -->
     foreach(member(c(OS,Tag,Configs), Triples),
-            html(tr([ th([\check('os:', os, OS), ' ', OS]), th(Tag)
+            html(tr([ th([\check('os:', os, OS, Options), ' ', OS]), th(Tag)
                     | \sequence(config_cell(OS,Tag,AllConfigs,Builds), Configs)
                     ]))).
 
@@ -176,14 +191,17 @@ same_tag(T1, T2) :-
     atom(T1), number(T2),
     atom_number(T1, T2).
 
-check(Prefix, Class, Id) -->
-    { atom_concat(Prefix, Id, TheID)
+check(Prefix, Class, Id, Options) -->
+    { option(role(dev), Options),
+      !,
+      atom_concat(Prefix, Id, TheID)
     },
     html(input([ type(checkbox),
                  class(['form-check-input', Class]),
                  id(TheID)
                ])).
-
+check(_, _, _, _) -->
+    [].
 
 
 		 /*******************************

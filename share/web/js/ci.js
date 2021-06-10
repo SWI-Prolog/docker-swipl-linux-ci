@@ -161,7 +161,7 @@ function event(data) {
 }
 
 function build_events() {
-  $.get("/ci/build/event", function(data) {
+  $.get("/ci/event", function(data) {
     if ( data )
       event(data);
     build_events();
