@@ -40,7 +40,7 @@ http:location(ci_css,        ci(css), []).
 :- http_handler(root('apple-touch-icon.png'), touch_icon, []).
 
 ci_logo(_Options) -->
-    { http_absolute_location(ci(.), HREF, [])
+    { http_absolute_location(ci(home), HREF, [])
     },
     html(a([href(HREF), class(['ci-logo', 'navbar-brand'])], &(nbsp))).
 
