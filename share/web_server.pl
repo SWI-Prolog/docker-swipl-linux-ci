@@ -167,16 +167,17 @@ config_cell(OS, Tag, AllConfigs, Builds, Config) -->
       atomic_list_concat([OS,Tag,Config], -, ID)
     },
     !,
-    (   {pass(OS, Tag, Config, _, Builds)}
+    (   {pass(OS, Tag, Config, [master, 'origin-master'], Builds)}
     ->  html(td([class([status,pass]), id(ID)], \glyph(ok)))
     ;   html(td([class([status,fail]), id(ID)], \glyph(remove)))
     ).
 config_cell(_OS, _Tag, _AllConfigs, _Config, _Builds) -->
     html(td(title('Not available'), -)).
 
-pass(OS, Tag, Config, Branch, Builds) :-
+pass(OS, Tag, Config, Branches, Builds) :-
     member(B, Builds),
     _{os:OS, tag:Tag2, config:Config, event: Event, stage:Stage, branch:Branch} :< B,
+    memberchk(Branch, Branches),
     same_tag(Tag, Tag2),
     (   Stage == failed
     ->  !, fail
@@ -293,7 +294,8 @@ var table = new Tabulator("#recent-build-table", {
     {title: "Config",     field: "config",  sorter:"string", hozAlign:"center"},
     {title: "Branch",     field: "branch",  sorter:"string",
      formatter: function(cell, params, onrendered) {
-       var branch = cell.getValue();
+       var branch = cell.getValue().replace(/([^-]*)-/, "$1/")
+                        .replace("origin/", "");
        return '<span class="branch-'+branch+'">'+branch+'</span>'
      }
     },
