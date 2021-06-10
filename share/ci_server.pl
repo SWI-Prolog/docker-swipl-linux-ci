@@ -5,8 +5,14 @@
 :- use_module(ci).
 :- use_module(library(broadcast)).
 :- use_module(ci_redis).
+:- use_module(library(debug)).
+:- use_module(library(main)).
 
 :- initialization(init_services, program).
+:- initialization(main, main).
+
+main(_Argv) :-
+    thread_get_message(quit).
 
 init_services :-
     thread_create(xlisten(ci, ['ci:request'], []), _,
