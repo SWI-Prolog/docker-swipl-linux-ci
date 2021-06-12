@@ -217,7 +217,7 @@ test_config(OS, Tag, Type, Branch, PackageBranches, Config) :-
     base_image(OS, Tag, Base),
     format(atom(LogFile), '~w/~w.log', [Dir, BuildID]),
     docker_run(Dir,
-               [run, '-it', '--rm', Base, '/bin/bash', '-c', Command],
+               [run, '-i', '--rm', Base, '/bin/bash', '-c', Command],
                LogFile).
 
 test_command(Out, OS, Tag, Type, Branch, PackageBranches, Config) :-
