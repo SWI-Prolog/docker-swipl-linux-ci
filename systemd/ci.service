@@ -1,0 +1,18 @@
+# ci -- SWI-Prolog Continuous integration
+
+[Unit]
+Description=CI
+After=redis.service
+
+[Service]
+UMask=022
+Environment=LANG=en_US.utf8
+Restart=on-failure
+StartLimitInterval=60
+StartLimitBurst=5
+WorkingDirectory=/home/jan/src/docker/docker-swipl-linux-ci
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/home/jan/bin/swipl share/ci_server.pl
+
+[Install]
+WantedBy=multi-user.target

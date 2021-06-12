@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Prepare OS directories for the ci server process to create Dockerfiles
+# and log files.
+
+fixfiles()
+{ ( cd $1
+    for f in *; do
+      case $f in
+        *.yaml|*.docker)
+		;;
+        *)
+		chgrp ci $f
+		chmod 664 $f
+      esac
+    done
+  )
+}
+
+config=$(echo */*/ci.yaml)
+for f in $config; do
+  dir=$(dirname $f)
+  chgrp ci $dir
+  chmod 775 $dir
+  chmod +t $dir
+  fixfiles $dir
+done
