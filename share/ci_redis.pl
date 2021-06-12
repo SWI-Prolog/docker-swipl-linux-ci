@@ -2,9 +2,13 @@
           []).
 :- use_module(library(redis)).
 :- use_module(library(redis_streams)).
+:- use_module(config).
 
-:- initialization redis_server(ci, localhost:6379, [ /*version(3)*/ ]).
-%:- initialization make_group(ci, ci:request, 100).
+:- initialization(init_redis, program).
+
+init_redis :-
+    redis_config(Address, Options),
+    redis_server(ci, Address, Options).
 
 /* <module> CI Redis commons
 

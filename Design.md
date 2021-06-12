@@ -10,37 +10,22 @@ For each configuration, e.g., centos:7, create a docker image that contains
 
 named <distro>-swipl-ci:<tag>
 
-## Incremental build (from branch)
+## Test builds (from branch)
 
-    FROM <distro>-swipl-ci:<tag>
-    RUN <update source to branch>
-    WORKING_DIRECTORY /opt/src/swipl-devel/build.<config>
-    RUN ninja/make
-    RUN ctest
+These run the base image using a a shell command that
 
-## Clean build (from branch)
-
-    FROM <distro>-swipl-ci:<tag>
-    RUN <update source to branch>
-    WORKING_DIRECTORY /opt/src/swipl-devel
-    RUN mkdir build.<config>.clean && cmake ...
-    RUN ninja/make
-    RUN ctest
+  - Checks out the right version
+  - For incremental build run the generator (make, ninja) in the
+    build directory
+  - For a clean build empty the build directory, configure and make.
+  - Run the tests
 
 ## Per platform specs:
 
-  - Docker statement(s) to get build dependencies
-  - Test environment (locale)
-  - Platform CMake options
-    - CFLAGS=
-    - Select gcc/clang/...
-    - Skip specific dependencies
-    - *_ROOT, etc to get the right dependencies (hardly ever needed)
-  - Platform build tool (make, ninja)
+  - `Dependencies.docker`
+  - YAML config file ci.yaml
 
-## Config
+## Branches
 
-  - Config CMake options
-    - PGO, Single threaded, Packages
-
-# Prolog based rules?
+  - Remotes from which we can test are specified in `config.yaml` in the
+    main dir.
