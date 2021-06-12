@@ -1,12 +1,10 @@
-# ci -- SWI-Prolog Continuous integration
+# ciweb -- SWI-Prolog Continuous integration web server
 
 [Unit]
-Description=CI
+Description=CI web server
 After=redis.service
 
 [Service]
-User=ci
-Group=ci
 UMask=022
 Environment=LANG=en_US.utf8
 Restart=on-failure
@@ -14,7 +12,7 @@ StartLimitInterval=60
 StartLimitBurst=5
 WorkingDirectory=/home/jan/src/docker/docker-swipl-linux-ci
 ExecReload=/bin/kill -HUP $MAINPID
-ExecStart=/home/jan/bin/swipl share/ci_server.pl
+ExecStart=/home/jan/bin/swipl share/web_server.pl --port=4040 --user=www-data --no-fork
 
 [Install]
 WantedBy=multi-user.target

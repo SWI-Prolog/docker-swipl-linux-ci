@@ -5,6 +5,7 @@
 :- use_module(library(http/html_write)).
 :- use_module(library(http/http_json)).
 :- use_module(library(http/http_authenticate), []).
+:- use_module(library(http/http_unix_daemon)).
 :- use_module(library(dcg/high_order)).
 :- use_module(library(apply)).
 :- use_module(library(lists)).
