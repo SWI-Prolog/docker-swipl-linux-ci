@@ -26,7 +26,7 @@ init_services :-
 ci(Data) :-
     _{os:OS, tag:Tag} :< Data,
     (   Data.get(pull) == true
-    ->  docker_pull(OS, Tag),
+    ->  docker_pull_base_image(OS, Tag),
         test_base(OS, Tag, _)
     ;   test(OS, Tag,
              Data.get(type, incremental),

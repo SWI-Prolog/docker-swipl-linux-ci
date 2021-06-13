@@ -1,0 +1,23 @@
+FROM swipl-mingw:latest
+
+# This is the image build from docker-swipl-build-mingw. It contains all
+# dependencies for building SWI-Prolog for  Windows.   It  runs  as user
+# `swipl`. To enable  the  normal  build   we  create  a  writeable /opt
+# directory as that is where all the building and testing happens in our
+# CI framework.
+
+USER	root:root
+RUN	mkdir -p /opt && \
+	chown -R swipl.swipl /opt
+USER	swipl:swipl
+
+ENV	CC=/usr/bin/x86_64-w64-mingw32-gcc \
+	MINGW64_ROOT=/usr/x86_64-w64-mingw32/sys-root/mingw \
+	MINGW32_ROOT=/usr/i686-w64-mingw32/sys-root/mingw \
+	WINEPREFIX=/wine \
+	WINEDEBUG=-all \
+	JAVA_HOME64="c:/Program Files/Java/jdk-13.0.2" \
+	JAVA_HOME32="c:/Program Files (x86)/Java/jdk-13.0.2" \
+	JAVA_HOME="c:/Program Files/Java/jdk-13.0.2"
+
+ENTRYPOINT []

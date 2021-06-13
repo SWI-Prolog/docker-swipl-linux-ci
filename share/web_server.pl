@@ -185,6 +185,10 @@ pass(OS, Tag, Config, Branches, Builds) :-
     ;   Stage == test,
         Event == passed
     ->  !
+    ;   Stage == build,
+        Event == passed,
+        config_dict(OS, Tag, Config, Options),
+        Options.get(test) == false
     ).
 
 same_tag(T, T) :-
@@ -250,7 +254,7 @@ function event_glyph(ev, stage) {
                     {configure: { glyph:"cog",   color:"LimeGreen" },
                      build:     { glyph:"flash", color:"LimeGreen" },
                      test:      { glyph:"flag",  color:"LimeGreen" }
-                    }[stage]
+                    }[stage] || {glyph:"question-sign", color:"red"}
                   ],
           failed: {glyph:"remove",  color:"red"},
           bench:  {glyph:"music",   color:"blue"}

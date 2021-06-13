@@ -2,6 +2,9 @@
 
 if [ -f CMakeCache.txt ]; then
   defcc=$(grep CMAKE_C_COMPILER:FILEPATH CMakeCache.txt | sed 's/.*=//')
+  if [ -z "$defcc" ]; then
+    defcc=$CC
+  fi
 fi
 
 cc=${1-$defcc}

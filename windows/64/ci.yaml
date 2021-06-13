@@ -1,0 +1,28 @@
+# Cross compilation for win64
+
+# We should not pull the base image as it is local.  Update
+# `swipl-mingw` instead.
+
+pull:
+
+default:
+  generator:
+    cmake: Ninja
+    command: ninja
+  ctest_env:
+      LANG: C.UTF-8
+  cmake_flags: >-
+      -DCMAKE_TOOLCHAIN_FILE=../cmake/cross/linux_win64.cmake
+      -DSKIP_SSL_TESTS=ON
+      -DJAVA_HOME="$WINEPREFIX/drive_c/Program Files/Java/jdk-13.0.2"
+      -DJAVA_COMPATIBILITY=ON
+      -DJUNIT_JAR=/usr/share/java/junit.jar
+  run: [ wine, src/swipl.exe ]
+  test: false
+
+configs:
+  - full:
+      comment: Default complete build
+  - pgo:
+      comment: PGO optimized buil
+      cmake_flags: -DCMAKE_BUILD_TYPE=PGO

@@ -16,7 +16,7 @@ remote(Dict, Name, URL) :-
 
 redis_config(Host:Port, Options) :-
     yaml_read('config.yaml', DOM),
-    Host = DOM.redis.get(host, localhost),
+    atom_string(Host, DOM.redis.get(host, localhost)),
     Port = DOM.redis.get(port, localhost),
     (   _{ user:User, password: Password } :< DOM.redis
     ->  Options = [user(User), password(Password), version(3)]

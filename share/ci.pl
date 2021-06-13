@@ -1,8 +1,10 @@
 :- module(ci,
-          [ test_base/3,     % +OS,+Tag,-Base
-            docker_pull/2,   % +OS,+Tag
-            test/6,          % +OS,+Tag,+Type,+Branch,+PackageBranches,+Configs
-            current_test/3   % ?OS,?Tag,-Configs
+          [ test_base/3,		% +OS, +Tag, -Base
+            docker_pull_base_image/2,   % +OS, +Tag
+            test/6,			% +OS, +Tag, +Type,
+					% +Branch, +PackageBranches, +Configs
+            current_test/3,             % ?OS,?Tag,-Configs
+            config_dict/4               % +OS,+Tag,+Config,-Dict
           ]).
 :- use_module(library(apply), [maplist/2, maplist/3]).
 :- use_module(library(dicts), [dict_keys/2]).
@@ -78,11 +80,22 @@ docker_ignore_cache(Out) :-
                    [ [ echo, Now ]
                    ]).
 
-
+%!  config_dict(+Dir, -Dict) is det.
 
 config_dict(Dir, Config) :-
     directory_file_path(Dir, 'ci.yaml', CI),
     yaml_read(CI, Config).
+
+%!  config_dict(+OS, +Tag, +Config, -Dict) is det.
+
+config_dict(OS, Tag, Config, Options) :-
+    os_dir(OS, Tag, Dir),
+    config_dict(Dir, YAML),
+    (   member(ConfigDict, YAML.configs),
+        dict_keys(ConfigDict, [Config])
+    ->  config_options(YAML.default, ConfigDict.Config, Options)
+    ;   existence_error(config, Config)
+    ).
 
 %! docker_config(+Out, +OS, +Tag, +DefaultDict, +Steps, +Configs,
 %!               +Format, +ConfigDict)
@@ -128,18 +141,20 @@ docker_config(Out, OS, Tag, Defaults, Steps, Configs, Format, ConfigDict) :-
                   [ echo, '@@PASSED:', OS, Tag, Config, Date, Branch, GitVersion, CC, test ]
                 ],
 
+    append(Options.run, ['../bench/run.pl', '--csv' ], RunBench),
+
     Bench =	[ [ cd, BuildDirArg ],
                   [ echo, '@@BENCH:', begin ],
-                  [ 'src/swipl', '../bench/run.pl', '--csv' ],
+                  RunBench,
                   [ echo, '@@BENCH:', end, bench, OS, Tag, Config, Date, Branch, GitVersion, CC ]
                 ],
 
     docker_comment(Out, '~N~n# Configuration ~w: ~s~n',
                    [Config, Options.comment], Format),
-    if_step(configure, Steps, Configure, C1),
-    if_step(build,     Steps, Build,     C2),
-    if_step(bench,     Steps, Bench,     C3),
-    if_step(test,      Steps, Test,      C4),
+    if_step(configure, Steps, Configure, C1, Options),
+    if_step(build,     Steps, Build,     C2, Options),
+    if_step(bench,     Steps, Bench,     C3, Options),
+    if_step(test,      Steps, Test,      C4, Options),
     append([Start,C1,C2,C3,C4], Commands),
     docker_command(
         Out, Commands,
@@ -147,8 +162,9 @@ docker_config(Out, OS, Tag, Defaults, Steps, Configs, Format, ConfigDict) :-
         Format).
 docker_config(_Out, _OS, _Tag, _Defaults, _Steps, _Configs, _Format, _ConfigDict).
 
-if_step(Step, Steps, Commands0, Commands) :-
-    (   memberchk(Step, Steps)
+if_step(Step, Steps, Commands0, Commands, Options) :-
+    (   memberchk(Step, Steps),
+        \+ Options.get(Step) == false
     ->  Commands = Commands0
     ;   Commands = []
     ).
@@ -180,9 +196,14 @@ config(Name, Defaults, Config, Value) :-
 
 config(generator,   override, _{cmake:"Ninja", command:ninja}).
 config(cmake_flags, append,   " ").
-config(cmake_env,   join,     _{}).
-config(ctest_env,   join,     _{}).
+config(cmake_env,   join,     env{}).
+config(ctest_env,   join,     env{}).
 config(comment,     override, "no comment").
+config(run,         override, ['src/swipl']).
+config(configure,   override, true).
+config(build,       override, true).
+config(bench,       override, true).
+config(test,        override, true).
 
 
 		 /*******************************
@@ -357,11 +378,23 @@ copy_file_to(Out, File) :-
         ),
         close(In)).
 
-docker_pull(Image, Tag) :-
-    format(string(Img), '~w:~w', [Image, Tag]),
-    process_create(path(docker),
-                   [ pull, Img ],
-                   []).
+%!  docker_pull_base_image(+OS, +Tag)
+%
+%   Pull the base image.
+
+docker_pull_base_image(OS, Tag) :-
+    os_dir(OS, Tag, Dir),
+    config_dict(Dir, Config),
+    (   Img = Config.get(pull)
+    ->  true
+    ;   format(string(Img), '~w:~w', [OS, Tag])
+    ),
+    (   split_string(Img, "", "\t\s", [""])
+    ->  true
+    ;   process_create(path(docker),
+                       [ pull, Img ],
+                       [])
+    ).
 
 %!  docker_build(+Dockerfile, +Image) is det.
 %
