@@ -19,10 +19,3 @@ default:
       -DJUNIT_JAR=/usr/share/java/junit.jar
   run: [ wine, src/swipl.exe ]
   test: false
-
-configs:
-  - full:
-      comment: Default complete build
-  - pgo:
-      comment: PGO optimized buil
-      cmake_flags: -DCMAKE_BUILD_TYPE=PGO

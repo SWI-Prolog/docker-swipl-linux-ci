@@ -6,10 +6,3 @@ default:
     command: ninja
   ctest_env:
       LANG: en_US.utf8
-
-configs:
-  - full:
-      comment: Default complete build
-  - pgo:
-      comment: PGO optimized build
-      cmake_flags: -DCMAKE_BUILD_TYPE=PGO

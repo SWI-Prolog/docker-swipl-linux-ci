@@ -3,9 +3,23 @@ redis:
   port: 6379
 # user: bob
 # password: secret
+
 remotes:
   - origin:
       url: https://github.com/SWI-Prolog/swipl-devel.git
   - dmchurch:
       url: https://github.com/dmchurch/swipl-devel.git
 
+configs:
+  - full:
+      comment: Default complete build
+  - pgo:
+      comment: PGO optimized build
+      cmake_flags: -DCMAKE_BUILD_TYPE=PGO
+  - no-threads:
+      comment: Single threaded build
+      cmake_flags: -DMULTI_THREADED=OFF
+      test: false
+  - no-gmp:
+      comment: Build without libGMP
+      cmake_flags: -DUSE_GMP=OFF

@@ -35,11 +35,7 @@ current_test(OS, Tag, Configs) :-
     file_base_name(TagDir, Tag),
     directory_file_path(TagDir, 'ci.yaml', CI),
     exists_file(CI),
-    config_dict(TagDir, ConfigDict),
-    maplist(yaml_config, ConfigDict.configs, Configs).
-
-yaml_config(ConfigDict, Config) :-
-    dict_keys(ConfigDict, [Config]).
+    findall(Config, config_dict(OS, Tag, Config, _Options), Configs).
 
 
 %!  test_base(+OS, +Tag, -Base) is det.
@@ -69,9 +65,8 @@ generate_docker_file(Out, OS, Tag) :-
     docker_ignore_cache(Out),
     copy_file_to(Out, share('Scripts.docker')),
     copy_file_to(Out, share('Download.docker')),
-    config_dict(Dir, Config),
-    maplist(docker_config(Out, OS, Tag, Config.default, _, _, docker),
-            Config.configs).
+    current_test(OS, Tag, Configs),
+    maplist(docker_config(Out, OS, Tag, docker, _Steps), Configs).
 
 docker_ignore_cache(Out) :-
     format(Out, '# Force ignoring the Docker cache~n', []),
@@ -86,29 +81,45 @@ config_dict(Dir, Config) :-
     directory_file_path(Dir, 'ci.yaml', CI),
     yaml_read(CI, Config).
 
-%!  config_dict(+OS, +Tag, +Config, -Dict) is det.
+%!  config_dict(+OS, +Tag, ?Config, -Dict) is semidet.
+%
+%   True when Dict describes a configuration Config for OS and Tag.
+%   Configurations from from
+%
+%     - config.yaml, key `configs`
+%     - Tag/OS/ci.yaml, key `configs`
+%
+%   Values are joined. First taking the config in ci.yaml configs`, then
+%   `ci.yaml` key `default` then `config.yaml, key `configs` and finally
+%   hard wired defaults in the code here.
 
 config_dict(OS, Tag, Config, Options) :-
+    distinct(Config, config_dict_(OS, Tag, Config, Options)),
+    Options.enabled == true.
+
+config_dict_(OS, Tag, Config, Options) :-
+    yaml_read('config.yaml', Global),
     os_dir(OS, Tag, Dir),
     config_dict(Dir, YAML),
-    (   member(ConfigDict, YAML.configs),
-        dict_keys(ConfigDict, [Config])
-    ->  config_options(YAML.default, ConfigDict.Config, Options)
-    ;   existence_error(config, Config)
+    (   member(GConfigDict, Global.configs),
+        dict_keys(GConfigDict, [Config]),
+        (   member(ConfigDict, YAML.get(configs)),
+            dict_keys(ConfigDict, [Config])
+        ->  config_options(GConfigDict.Config, YAML.default, Defaults),
+            config_options(Defaults, ConfigDict.Config, Options)
+        ;   config_options(YAML.default, GConfigDict.Config, Options)
+        )
+    ;   member(ConfigDict, YAML.get(configs)),
+        dict_keys(ConfigDict, [Config]),
+        config_options(YAML.default, ConfigDict.Config, Options)
     ).
 
-%! docker_config(+Out, +OS, +Tag, +DefaultDict, +Steps, +Configs,
-%!               +Format, +ConfigDict)
+%! docker_config(+Out, +OS, +Tag, +Format, +Steps, +Config) is det.
 
-docker_config(Out, OS, Tag, Defaults, Steps, Configs, Format, ConfigDict) :-
-    dict_keys(ConfigDict, [Config]),
-    (   Configs == all
-    ->  true
-    ;   memberchk(Config, Configs)
-    ),
+docker_config(Out, OS, Tag, Format, Steps, Config) :-
+    config_dict(OS, Tag, Config, Options),
     !,
     atom_concat('build.', Config, BuildDir),
-    config_options(Defaults, ConfigDict.Config, Options),
     format(string(BuildDirArg), "$SWIPL_SRC/~w", [BuildDir]),
 
     Date = "$(date +%s.%N)",
@@ -160,7 +171,7 @@ docker_config(Out, OS, Tag, Defaults, Steps, Configs, Format, ConfigDict) :-
         Out, Commands,
         [ echo, '@@FAILED:', OS, Tag, Config, Date, Branch, GitVersion, CC ],
         Format).
-docker_config(_Out, _OS, _Tag, _Defaults, _Steps, _Configs, _Format, _ConfigDict).
+docker_config(_Out, _OS, _Tag, _Format, _Steps, _Config).
 
 if_step(Step, Steps, Commands0, Commands, Options) :-
     (   memberchk(Step, Steps),
@@ -168,6 +179,8 @@ if_step(Step, Steps, Commands0, Commands, Options) :-
     ->  Commands = Commands0
     ;   Commands = []
     ).
+
+%!  config_options(+Defaults, +Config, -Final) is det.
 
 config_options(Defaults, "", Options) =>
     config_options(Defaults, yaml{}, Options).
@@ -204,6 +217,7 @@ config(configure,   override, true).
 config(build,       override, true).
 config(bench,       override, true).
 config(test,        override, true).
+config(enabled,     override, true).
 
 
 		 /*******************************
@@ -213,7 +227,7 @@ config(test,        override, true).
 %!  test(+OS, +Tag, +Type, +Branch, +PackageBranches, +Configs) is semidet.
 %
 %   Run  a  set  of  tests  on  OS/Tag.   Type  is  one  of  `clean`  or
-%   `incremetal`. Branch is the branch to  test and PackageBranches is a
+%   `incremental`. Branch is the branch to test and PackageBranches is a
 %   dict that can be used to point   at  alternative branches for one or
 %   more of the packages. For example _{clib:testing}. Configs is either
 %   `all` or a list of configurations defined  in `ci.yaml` to test. The
@@ -241,15 +255,14 @@ test_config(OS, Tag, Type, Branch, PackageBranches, Config) :-
                [run, '-i', '--rm', Base, '/bin/bash', '-c', Command],
                LogFile).
 
+%!  test_command(+Out, +OS, +Tag, +Type,
+%!               +Branch, +PackageBranches, +Config) is det.
+
 test_command(Out, OS, Tag, Type, Branch, PackageBranches, Config) :-
     checkout_version_command(Out, Branch, PackageBranches),
     connect(Out, '&&', shell),
-    os_dir(OS, Tag, Dir),
-    config_dict(Dir, OSConfig),
     type_steps(Type, Steps),
-    maplist(docker_config(Out, OS, Tag, OSConfig.default,
-                          Steps,
-                          [Config], shell), OSConfig.configs).
+    docker_config(Out, OS, Tag, shell, Steps, Config).
 
 build_id(OS, Tag, Config, BuildID) :-
     redis(ci, incr(build:OS:Tag:Config), Num),
