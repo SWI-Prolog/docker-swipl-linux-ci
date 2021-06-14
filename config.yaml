@@ -16,6 +16,11 @@ configs:
   - pgo:
       comment: PGO optimized build
       cmake_flags: -DCMAKE_BUILD_TYPE=PGO
+  - debug:
+      comment: Debug build
+      cmake_flags: -DCMAKE_BUILD_TYPE=Debug
+      bench: false
+      test: false
   - no-threads:
       comment: Single threaded build
       cmake_flags: -DMULTI_THREADED=OFF
