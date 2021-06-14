@@ -29,14 +29,22 @@ user:file_search_path(share, share).
 %   Enumerate all available test configurations. Configs   is  a list of
 %   config ids as provided by `ci.yaml` in the OS/Tag directory.
 
-current_test(OS, Tag, Configs) :-
+current_test(OS, Tag, Configs), nonvar(OS), nonvar(Tag) =>
+    os_dir(OS, Tag, Dir),
+    directory_file_path(Dir, 'ci.yaml', CI),
+    exists_file(CI),
+    findall(Config, config_dict(OS, Tag, Config, _Options), Configs).
+current_test(OS, Tag, Configs) =>
     directory_member(., OS, [file_type(directory)]),
     directory_member(OS, TagDir, [file_type(directory)]),
-    file_base_name(TagDir, Tag),
+    file_base_name(TagDir, TagAtom),
+    same_tag(TagAtom, Tag),
     directory_file_path(TagDir, 'ci.yaml', CI),
     exists_file(CI),
     findall(Config, config_dict(OS, Tag, Config, _Options), Configs).
 
+same_tag(Atom, Tag) :-
+    atom_number(Atom, Tag).
 
 %!  test_base(+OS, +Tag, -Base) is det.
 %
