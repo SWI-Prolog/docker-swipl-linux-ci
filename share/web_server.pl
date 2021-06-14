@@ -5,7 +5,7 @@
 :- use_module(library(http/html_write)).
 :- use_module(library(http/http_json)).
 :- use_module(library(http/http_authenticate), []).
-:- use_module(library(http/http_unix_daemon)).
+:- use_module(library(http/http_unix_daemon), []).
 :- use_module(library(dcg/high_order)).
 :- use_module(library(apply)).
 :- use_module(library(lists)).
@@ -155,7 +155,14 @@ update_button(Type, Rebuild, BtnType, Label) -->
              ])).
 
 th_config(Options, Config) -->
-    html(th([\check('config:', config, Config, Options), ' ', Config])).
+    { config_comment(Config, Comment) },
+    html(th(title(Comment),
+            [\check('config:', config, Config, Options), ' ', Config])).
+
+config_comment(Config, Comment) :-
+    config_dict(_OS, _Tag, Config, Dict),
+    Comment = Dict.get(comment, Config),
+    !.
 
 os(Triples, AllConfigs, Builds, Options, OS) -->
     foreach(member(c(OS,Tag,Configs), Triples),

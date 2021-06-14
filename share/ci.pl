@@ -9,15 +9,19 @@
 :- use_module(library(apply), [maplist/2, maplist/3]).
 :- use_module(library(dicts), [dict_keys/2]).
 :- use_module(library(filesex), [directory_file_path/3, directory_member/3]).
-:- use_module(library(lists), [selectchk/3, append/2, append/3]).
+:- use_module(library(lists), [selectchk/3, append/2, append/3, member/2]).
 :- use_module(library(option), [option/2]).
 :- use_module(library(pairs), [pairs_values/2]).
 :- use_module(library(process), [process_create/3, process_wait/2]).
 :- use_module(library(yaml), [yaml_read/2]).
-:- use_module(library(error), [must_be/2]).
+:- use_module(library(error), [must_be/2, domain_error/2, existence_error/2]).
 :- use_module(library(broadcast), [broadcast/1]).
 :- use_module(library(dcg/basics), [float/3, whites/2, nonblanks/3]).
 :- use_module(config).
+:- use_module(library(ctypes), [is_csym/1]).
+:- use_module(library(debug), [debug/3]).
+:- use_module(library(redis), [redis/3]).
+:- use_module(library(solution_sequences), [distinct/2]).
 
 :- multifile
     user:file_search_path/2.
@@ -29,19 +33,21 @@ user:file_search_path(share, share).
 %   Enumerate all available test configurations. Configs   is  a list of
 %   config ids as provided by `ci.yaml` in the OS/Tag directory.
 
-current_test(OS, Tag, Configs), nonvar(OS), nonvar(Tag) =>
+current_test(OS, Tag, Configs) :-
+    current_os_tag(OS, Tag),
+    findall(Config, config_dict(OS, Tag, Config, _Options), Configs).
+
+current_os_tag(OS, Tag), nonvar(OS), nonvar(Tag) =>
     os_dir(OS, Tag, Dir),
     directory_file_path(Dir, 'ci.yaml', CI),
-    exists_file(CI),
-    findall(Config, config_dict(OS, Tag, Config, _Options), Configs).
-current_test(OS, Tag, Configs) =>
+    exists_file(CI).
+current_os_tag(OS, Tag) =>
     directory_member(., OS, [file_type(directory)]),
     directory_member(OS, TagDir, [file_type(directory)]),
     file_base_name(TagDir, TagAtom),
     same_tag(TagAtom, Tag),
     directory_file_path(TagDir, 'ci.yaml', CI),
-    exists_file(CI),
-    findall(Config, config_dict(OS, Tag, Config, _Options), Configs).
+    exists_file(CI).
 
 same_tag(Atom, Tag) :-
     atom_number(Atom, Tag).
@@ -102,7 +108,9 @@ config_dict(Dir, Config) :-
 %   hard wired defaults in the code here.
 
 config_dict(OS, Tag, Config, Options) :-
+    current_os_tag(OS, Tag),
     distinct(Config, config_dict_(OS, Tag, Config, Options)),
+    valid_config(Config),
     Options.enabled == true.
 
 config_dict_(OS, Tag, Config, Options) :-
@@ -121,6 +129,13 @@ config_dict_(OS, Tag, Config, Options) :-
         dict_keys(ConfigDict, [Config]),
         config_options(YAML.default, ConfigDict.Config, Options)
     ).
+
+valid_config(Name) :-
+    atom_codes(Name, Codes),
+    maplist(is_csym, Codes),
+    !.
+valid_config(Name) :-
+    domain_error(configuration_name, Name).
 
 %! docker_config(+Out, +OS, +Tag, +Format, +Steps, +Config) is det.
 

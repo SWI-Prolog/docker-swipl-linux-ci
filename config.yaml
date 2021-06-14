@@ -21,10 +21,10 @@ configs:
       cmake_flags: -DCMAKE_BUILD_TYPE=Debug
       bench: false
       test: false
-  - no-threads:
+  - nothreads:
       comment: Single threaded build
       cmake_flags: -DMULTI_THREADED=OFF
       test: false
-  - no-gmp:
+  - nogmp:
       comment: Build without libGMP
       cmake_flags: -DUSE_GMP=OFF
