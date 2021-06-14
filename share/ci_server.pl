@@ -19,7 +19,8 @@ init_services :-
                   [ alias(ci_requests)
                   ]),
     listen(redis(_Redis, 'ci:request', _Id, Data),
-           ci(Data)),
+           catch_with_backtrace(ci(Data), E,
+                                print_message(error, E))),
     listen(build(Status),
            store(Status)).
 
