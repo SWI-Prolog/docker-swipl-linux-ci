@@ -160,11 +160,11 @@ th_config(Options, Config) -->
 os(Triples, AllConfigs, Builds, Options, OS) -->
     foreach(member(c(OS,Tag,Configs), Triples),
             html(tr([ th([\check('os:', os, OS, Options), ' ', OS]), th(Tag)
-                    | \sequence(config_cell(OS,Tag,AllConfigs,Builds), Configs)
+                    | \sequence(config_cell(OS,Tag,Configs,Builds), AllConfigs)
                     ]))).
 
-config_cell(OS, Tag, AllConfigs, Builds, Config) -->
-    { memberchk(Config, AllConfigs),
+config_cell(OS, Tag, Configs, Builds, Config) -->
+    { memberchk(Config, Configs),
       atomic_list_concat([OS,Tag,Config], -, ID)
     },
     !,
