@@ -160,12 +160,19 @@ function event(data) {
     window.build_table.addData(data, true);
 }
 
+var events_since = 0;
+
 function build_events() {
-  $.get("/ci/event", function(data) {
-    if ( data )
-      event(data);
-    build_events();
-  }).fail(build_events);
+  $.get("/ci/events",
+	events_since ? {since: events_since} : {},
+	function(data) {
+	  if ( data ) {
+	    events_since = data.time;
+	    for(var i=0; i<data.messages.length; i++)
+	      event(data.messages[i]);
+	  }
+	  build_events();
+	}).fail(build_events);
 }
 
 function fill_branches(remote) {

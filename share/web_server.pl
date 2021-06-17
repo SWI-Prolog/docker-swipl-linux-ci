@@ -43,7 +43,7 @@ server(Port) :-
 :- http_handler(ci(build/incremental), build(incremental), [ prefix]).
 :- http_handler(ci(build/clean),       build(clean),       [ prefix]).
 :- http_handler(ci(build/base),        build(base),        [ prefix]).
-:- http_handler(ci(event),             build_event,        []).
+:- http_handler(ci(events),            build_events,       []).
 :- http_handler(ci(branches),          remote_branches,    [ prefix ]).
 :- http_handler(ci('recent-builds'),   recent_builds,      []).
 
@@ -490,17 +490,65 @@ remote_branches(Request) :-
 
 :- initialization(relay_events, program).
 
+:- dynamic
+    build_event/1.
+
+%!  relay_events
+%
+%   Relay events from the ci server to our database.
+
 relay_events :-
     message_queue_create(_, [alias(build_events)]),
     redis_subscribe(ci, [ci:event], _Id, [alias(events)]),
     listen(redis(ci, 'ci:event', Data),
-           thread_send_message(build_events, msg(Data))).
+           store_build_event(Data)).
 
-build_event(_Request) :-
-    (   thread_get_message(build_events, msg(Msg0), [timeout(60)])
-    ->  debug(event, 'Got event ~p', [Msg0]),
-        fixup_event_dict(Msg0, Msg),
-        reply_json_dict(Msg)
-    ;   reply_json_dict(null)
+store_build_event(Data0) :-
+    fixup_event_dict(Data0, Data),
+    asserta(build_event(Data)).
+
+%!  build_events(Request)
+%
+%   Reply with build events produces after   a specific time. It replies
+%   with a JSON object containing `time` and `messages`, where `time` is
+%   the time of the last message or _now_.
+
+build_events(Request) :-
+    http_parameters(Request,
+                    [ since(Time, [float, optional(true)])
+                    ]),
+    (   var(Time)
+    ->  get_time(Time)
+    ;   true
+    ),
+    get_time(Now),
+    Deadline is Now+60,
+    build_messages_after(Time, Deadline, Messages),
+    (   last(Messages, LastMsg)
+    ->  LastTime = LastMsg.time
+    ;   LastTime = Time
+    ),
+    reply_json_dict(json{time:LastTime, messages:Messages}).
+
+
+build_messages_after(Time, _Deadline, Messages) :-
+    findall(Message, build_message_after(Time, Message), Messages),
+    Messages \== [],
+    !.
+build_messages_after(Time, Deadline, Messages) :-
+    thread_wait(true,
+                [ deadline(Deadline),
+                  wait_preds([build_event/2])
+                ]),
+    !,
+    build_messages_after(Time, Deadline, Messages).
+build_messages_after(_, _, []).
+
+build_message_after(Time, Message) :-
+    build_event(Message),
+    EvTime = Message.time,
+    (   EvTime > Time
+    ->  true
+    ;   !,
+        fail
     ).
-
