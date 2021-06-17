@@ -6,7 +6,7 @@
             current_test/3,             % ?OS,?Tag,-Configs
             config_dict/4               % +OS,+Tag,+Config,-Dict
           ]).
-:- use_module(library(apply), [maplist/2, maplist/3]).
+:- use_module(library(apply), [maplist/2, maplist/3, exclude/3]).
 :- use_module(library(dicts), [dict_keys/2]).
 :- use_module(library(filesex), [directory_file_path/3, directory_member/3]).
 :- use_module(library(lists), [selectchk/3, append/2, append/3, member/2]).
@@ -150,6 +150,8 @@ docker_config(Out, OS, Tag, Format, Steps, Config) :-
     Branch = "$(git rev-parse --abbrev-ref HEAD)",
     CC = "$(/opt/bin/cc-version)",
 
+    Init =      Options.init,
+
     Start =     [ [ echo, '@@START:', OS, Tag, Config, Date, Branch, GitVersion ]
                 ],
 
@@ -189,7 +191,7 @@ docker_config(Out, OS, Tag, Format, Steps, Config) :-
     if_step(build,     Steps, Build,     C2, Options),
     if_step(bench,     Steps, Bench,     C3, Options),
     if_step(test,      Steps, Test,      C4, Options),
-    append([Start,C1,C2,C3,C4], Commands),
+    append([Init,Start,C1,C2,C3,C4], Commands),
     docker_command(
         Out, Commands,
         [ echo, '@@FAILED:', OS, Tag, Config, Date, Branch, GitVersion, CC ],
@@ -236,6 +238,7 @@ config(cmake_env,   join,     env{}).
 config(ctest_env,   join,     env{}).
 config(comment,     override, "no comment").
 config(run,         override, ['src/swipl']).
+config(init,        override, []).
 config(configure,   override, true).
 config(build,       override, true).
 config(bench,       override, true).
@@ -328,9 +331,11 @@ docker_command(Out, Command) :-
 
 docker_command(Out, Command, Or, docker) =>
     format(Out, '~N~nRUN\t', []),
-    docker_command_lines(Out, Command, Or, docker).
+    exclude(==([]), Command, Command1),
+    docker_command_lines(Out, Command1, Or, docker).
 docker_command(Out, Command, Or, shell) =>
-    docker_command_lines(Out, Command, Or, shell).
+    exclude(==([]), Command, Command1),
+    docker_command_lines(Out, Command1, Or, shell).
 
 docker_command_lines(_, [], _, _) :-
     !.
