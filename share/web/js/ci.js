@@ -103,11 +103,31 @@ function target_osses(targets) {
   return osses;
 }
 
+function filter(data) {
+  if ( window.targets && window.targets.length > 0 ) {
+    for(var i=0; i<window.targets.length; i++) {
+      var l = window.targets[i].split("-");
+      if ( data.os     == l[0] &&
+           data.tag    == l[1] &&
+           data.config == l[2] )
+        return true;
+    }
+    return false;
+  } else {
+    return true;
+  }
+}
+
+
 function update_selection() {
   var targets = target_selection();
   var osses = target_osses(targets);
 
+  window.targets = targets;
+
   if ( targets.length ) {
+    var os_filters = [];
+
     $(".build-options").addClass("active");
     $(".build-button.config .build-label")
 	.text("Build "+targets.length+" targets: ");
@@ -119,6 +139,9 @@ function update_selection() {
   } else {
     $(".build-options").removeClass("active");
   }
+
+  if ( window.build_table )
+    window.build_table.setFilter(filter);
 }
 
 function build_result(how, cls, message) {
@@ -181,14 +204,16 @@ function build_events() {
 }
 
 function fill_branches(remote) {
-  $.get("/ci/branches/"+remote, function(data) {
-    $("#branch").html("");
-    for(var i=0; i<data.length; i++) {
-      $("#branch").append('<option value="'+data[i]+'">'+data[i]+'</option>');
-    }
-    if ( data.includes("master") )
-      $("#branch").val("master");
-  });
+  if ( remote ) {
+    $.get("/ci/branches/"+remote, function(data) {
+      $("#branch").html("");
+      for(var i=0; i<data.length; i++) {
+	$("#branch").append('<option value="'+data[i]+'">'+data[i]+'</option>');
+      }
+      if ( data.includes("master") )
+	$("#branch").val("master");
+    });
+  }
 }
 
 
