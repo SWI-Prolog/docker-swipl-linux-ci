@@ -175,7 +175,9 @@ function build_events() {
 	      event(data.messages[i]);
 	  }
 	  build_events();
-	}).fail(build_events);
+	}).fail(function() {
+	  setTimeout(build_events, 5000);
+	});
 }
 
 function fill_branches(remote) {
