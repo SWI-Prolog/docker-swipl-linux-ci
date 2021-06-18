@@ -45,6 +45,7 @@ server(Port) :-
 :- http_handler(ci(build/base),        build(base),        [ prefix]).
 :- http_handler(ci(events),            build_events,       []).
 :- http_handler(ci(branches),          remote_branches,    [ prefix ]).
+:- http_handler(ci(summary),           summary_table,      []).
 :- http_handler(ci('recent-builds'),   recent_builds,      []).
 
 home(Role, _Request) :-
@@ -89,8 +90,20 @@ content(Options) -->
     { builds(Dicts),
       reverse(Dicts, Builds)
     },
-    summary_table(Builds, Options),
+    html(div(id('summary-table'),
+             \summary_table(Builds, Options))),
     build_table(Builds).
+
+%!  summary_table(+Request)
+%
+%   Just send a new summary table for an AJAX update
+
+summary_table(_Request) :-
+    builds(Dicts),
+    reverse(Dicts, Builds),
+    phrase(summary_table(Builds, []), Tokens),
+    format('Content-type: text/html~n~n'),
+    print_html(Tokens).
 
 %!  summary_table(+Builds, +Options)//
 %
@@ -172,31 +185,43 @@ os(Triples, AllConfigs, Builds, Options, OS) -->
 
 config_cell(OS, Tag, Configs, Builds, Config) -->
     { memberchk(Config, Configs),
-      atomic_list_concat([OS,Tag,Config], -, ID)
+      atomic_list_concat([OS,Tag,Config], -, ID),
+      build_status(OS, Tag, Config, [master, 'origin-master'], Builds, Status),
+      build_status_feedback(Status, Class, Glyph, Title),
+      !
     },
-    !,
-    (   {pass(OS, Tag, Config, [master, 'origin-master'], Builds)}
-    ->  html(td([class([status,pass]), id(ID)], \glyph(ok)))
-    ;   html(td([class([status,fail]), id(ID)], \glyph(remove)))
-    ).
+    html(td([class([status,Class]), id(ID), title(Title)], \glyph(Glyph))).
 config_cell(_OS, _Tag, _AllConfigs, _Config, _Builds) -->
     html(td(title('Not available'), -)).
 
-pass(OS, Tag, Config, Branches, Builds) :-
+build_status_feedback(passed,   pass,    ok,     "Last build passed").
+build_status_feedback(failed,   fail,    remove, "Last build faled").
+build_status_feedback(building, build,   cog,    "Building").
+build_status_feedback(unknown,  unknown, minus,  "Never build").
+
+build_status(OS, Tag, Config, Branches, Builds, Status) :-
     member(B, Builds),
     _{os:OS, tag:Tag2, config:Config, event: Event, stage:Stage, branch:Branch} :< B,
     memberchk(Branch, Branches),
     same_tag(Tag, Tag2),
     (   Stage == failed
-    ->  !, fail
+    ->  !,
+        Status = failed
     ;   Stage == test,
         Event == passed
-    ->  !
+    ->  !,
+        Status = passed
     ;   Stage == build,
         Event == passed,
         config_dict(OS, Tag, Config, Options),
         Options.get(test) == false
+    ->  !,
+        Status = passed
+    ;   Stage = started
+    ->  !,
+        Status = building
     ).
+build_status(_OS, _Tag, _Config, _Branches, _Builds, unknown).
 
 same_tag(T, T) :-
     !.

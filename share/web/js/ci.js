@@ -158,6 +158,11 @@ function build(how) {
 function event(data) {
   if ( window.build_table )
     window.build_table.addData(data, true);
+
+  $.get("/ci/summary",
+	function(data) {
+	  $("#summary-table").html(data);
+	});
 }
 
 var events_since = 0;
