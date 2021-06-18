@@ -195,7 +195,7 @@ config_cell(_OS, _Tag, _AllConfigs, _Config, _Builds) -->
     html(td(title('Not available'), -)).
 
 build_status_feedback(passed,   pass,    ok,     "Last build passed").
-build_status_feedback(failed,   fail,    remove, "Last build faled").
+build_status_feedback(failed,   fail,    remove, "Last build failed").
 build_status_feedback(building, build,   cog,    "Building").
 build_status_feedback(unknown,  unknown, minus,  "Never build").
 
@@ -301,6 +301,19 @@ function glyph(obj) {
 }
 
 
+function event_html(event, stage) {
+  var icon = event_glyph(event, stage);
+  if ( Array.isArray(icon) ) {
+    var res = "";
+    for(var i=0; i<icon.length; i++) {
+      res += glyph(icon[i]);
+    }
+    return res;
+  } else {
+    return glyph(icon);
+  }
+}
+
 var table = new Tabulator("#recent-build-table", {
   ajaxURL:"/ci/recent-builds",
   layout:"fitDataStretch",
@@ -309,16 +322,8 @@ var table = new Tabulator("#recent-build-table", {
     {title: "Event",      field: "event",   sorter:"string", hozAlign:"center",
      formatter: function(cell, params, onrendered) {
        var data = cell.getRow().getData();
-       var icon = event_glyph(data.event, data.stage);
-       if ( Array.isArray(icon) ) {
-         var res = "";
-         for(var i=0; i<icon.length; i++) {
-           res += glyph(icon[i]);
-         }
-         return res;
-       } else {
-         return glyph(icon);
-       }
+
+       return event_html(data.event, data.stage);
      },
      tooltip: function(cell) {
        var data = cell.getRow().getData();
@@ -366,7 +371,7 @@ var table = new Tabulator("#recent-build-table", {
 });
 
 window.build_table = table;
-
+window.event_html = event_html;
 });
 
 </script>

@@ -159,10 +159,8 @@ function event(data) {
   if ( window.build_table )
     window.build_table.addData(data, true);
 
-  $.get("/ci/summary",
-	function(data) {
-	  $("#summary-table").html(data);
-	});
+  var cell = $("#"+[data.os, data.tag, data.config].join("-"));
+  cell.html(event_html(data.event, data.stage));
 }
 
 var events_since = 0;
