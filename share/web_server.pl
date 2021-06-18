@@ -201,27 +201,35 @@ build_status_feedback(unknown,  unknown, minus,  "Never build").
 
 build_status(OS, Tag, Config, Branches, Builds, Status) :-
     member(B, Builds),
-    _{os:OS, tag:Tag2, config:Config, event: Event, stage:Stage, branch:Branch} :< B,
+    _{os:OS, tag:Tag2, config:Config, branch:Branch} :< B,
     memberchk(Branch, Branches),
     same_tag(Tag, Tag2),
-    (   Stage == failed
-    ->  !,
-        Status = failed
-    ;   Stage == test,
-        Event == passed
-    ->  !,
-        Status = passed
-    ;   Stage == build,
-        Event == passed,
-        config_dict(OS, Tag, Config, Options),
-        Options.get(test) == false
-    ->  !,
-        Status = passed
-    ;   Stage = started
-    ->  !,
-        Status = building
-    ).
+%   debug(status, "Eval OS=~p, Config=~p", [OS, Config]),
+    !,
+    event_status(B, Status).
 build_status(_OS, _Tag, _Config, _Branches, _Builds, unknown).
+
+event_status(Data, Status),
+    _{ event:failed } :< Data                  => Status = failed.
+event_status(Data, Status),
+    _{ event:passed, stage:test } :< Data      => Status = passed.
+event_status(Data, Status),
+    _{ event:passed, stage:build } :< Data,
+    event_no_test(Data)                        => Status = passed.
+event_status(Data, Status),
+    _{ event:passed, stage:start } :< Data     => Status = building.
+event_status(Data, Status),
+    _{ event:passed, stage:configure } :< Data => Status = building.
+event_status(Data, Status),
+    _{ event:bench } :< Data,
+    event_no_test(Data)                        => Status = passed.
+event_status(Data, Status),
+    _{ event:bench } :< Data                   => Status = building.
+
+event_no_test(Data) :-
+    _{ os:OS, tag:Tag, config:Config } :< Data,
+    config_dict(OS, Tag, Config, Options),
+    Options.test == false.
 
 same_tag(T, T) :-
     !.
