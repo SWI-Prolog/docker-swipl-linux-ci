@@ -1,0 +1,6 @@
+# Alpine defaults
+
+default:
+  generator:
+    cmake: Ninja
+    command: ninja
