@@ -16,7 +16,7 @@
 :- use_module(library(yaml), [yaml_read/2]).
 :- use_module(library(error), [must_be/2, domain_error/2, existence_error/2]).
 :- use_module(library(broadcast), [broadcast/1]).
-:- use_module(library(dcg/basics), [float/3, whites/2, nonblanks/3]).
+:- use_module(library(dcg/basics), [float/3, whites/2, nonblanks/3, integer//1]).
 :- use_module(config).
 :- use_module(library(ctypes), [is_csym/1]).
 :- use_module(library(debug), [debug/3]).
@@ -599,10 +599,14 @@ status_params_cc(Event, Dict, Stream) -->
 
 msg_atom(Atom)       --> whites, nonblanks(Codes), {atom_codes(Atom, Codes)}.
 msg_time(Time)       --> whites, float(Time).
+msg_time(Time)       --> whites, integer(TimeI), opt_dot, { Time is float(TimeI) }.
 msg_version(Version) --> whites, nonblanks(Codes), {string_codes(Version, Codes)}.
 
 eol --> "\r\n", !.
 eol --> "\n".
+
+opt_dot --> ".", !.
+opt_dot --> "".
 
 
 		 /*******************************
