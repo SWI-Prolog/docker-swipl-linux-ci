@@ -12,22 +12,22 @@ The software in in `share`.   To run this locally:
 
   - In share run this to get the web resources
 
-	yarn
+        yarn
 
   - Start a Redis server at the default location (`localhost:6379`) or
     edit `config.yaml` to specify a host, port and optionally authentication.
 
   - Start the integration server using
 
-	swipl share/ci_server.pl
+        swipl share/ci_server.pl
 
   - Create an authorized user using
 
-	htpasswd -d -c passwd username
+        htpasswd -d -c passwd username
 
   - Start the web server using
 
-	swipl share/web_server.pl --port=8080 --no-fork
+        swipl share/web_server.pl --port=8080 --no-fork
 
   - Surf to http://localhost:8080/ci/dev and login.  You should now see an empty
     build table.  Select an OS.  That should give build buttons.  Click the
@@ -49,4 +49,4 @@ Other steps:
   - Run
 
         sudo systemctl enable ci ciweb
-	sudo systemctl start ci ciweb
+        sudo systemctl start ci ciweb
