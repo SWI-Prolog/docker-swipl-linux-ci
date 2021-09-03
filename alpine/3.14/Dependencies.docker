@@ -1,10 +1,13 @@
 FROM alpine:3.14
 
-RUN apk --update-cache \
-	cmake alpine-sdk gmp-dev ncurses-dev zlib-dev libedit-dev readline-dev \
+RUN apk update
+RUN apk add \
+	alpine-sdk bash cmake samurai zlib-dev \
+	gmp-dev \
+	ncurses-dev libedit-dev readline-dev \
 	libarchive-dev openssl-dev pcre-dev yaml-dev \
 	db-dev unixodbc-dev \
 	libice-dev libjpeg-turbo-dev \
 	libxext-dev libxft-dev libxinerama-dev libxpm-dev libxt-dev \
 	openjdk11-jdk junit \
-	qt5-qtbase-dev samurai
+	qt5-qtbase-dev
