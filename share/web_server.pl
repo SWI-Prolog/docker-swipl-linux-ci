@@ -217,6 +217,8 @@ event_status(Data, Status),
     _{ event:passed, stage:build } :< Data,
     event_no_test(Data)                        => Status = passed.
 event_status(Data, Status),
+    _{ event:passed, stage:build } :< Data     => Status = building.
+event_status(Data, Status),
     _{ event:passed, stage:start } :< Data     => Status = building.
 event_status(Data, Status),
     _{ event:passed, stage:configure } :< Data => Status = building.
