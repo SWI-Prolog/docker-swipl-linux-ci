@@ -1,4 +1,4 @@
-FROM debian:10
+FROM debian:11
 
 RUN	apt-get update
 
@@ -9,3 +9,5 @@ RUN	apt-get install -y git build-essential cmake ninja-build pkg-config \
         libossp-uuid-dev libxext-dev libice-dev libjpeg-dev libxinerama-dev \
 	libxft-dev libxpm-dev libxt-dev \
         libdb-dev libpcre2-dev libyaml-dev default-jdk junit4
+
+ENV LANG=C.utf8
