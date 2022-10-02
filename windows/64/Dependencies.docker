@@ -1,4 +1,4 @@
-FROM swipl-mingw:latest
+FROM swipl-mingw-f35:latest
 
 # This is the image build from docker-swipl-build-mingw. It contains all
 # dependencies for building SWI-Prolog for  Windows.   It  runs  as user
