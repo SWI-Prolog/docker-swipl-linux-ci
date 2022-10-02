@@ -576,9 +576,9 @@ build_messages_after(Time, _Deadline, Messages) :-
     Messages \== [],
     !.
 build_messages_after(Time, Deadline, Messages) :-
-    thread_wait(true,
+    thread_wait(build_event(_),
                 [ deadline(Deadline),
-                  wait_preds([build_event/2])
+                  wait_preds([build_event/1])
                 ]),
     !,
     build_messages_after(Time, Deadline, Messages).
