@@ -50,3 +50,8 @@ Other steps:
 
         sudo systemctl enable ci ciweb
         sudo systemctl start ci ciweb
+
+## Update to new OS version
+
+  - git mv OS/OldTag OS/NewTag
+  - edit OS/NewTag/Dependencies.docker (FROM base)
