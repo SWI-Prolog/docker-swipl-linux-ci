@@ -5,7 +5,7 @@ RUN apk add \
 	alpine-sdk bash cmake samurai zlib-dev \
 	gmp-dev \
 	ncurses-dev libedit-dev readline-dev \
-	libarchive-dev openssl-dev pcre-dev yaml-dev \
+	libarchive-dev openssl-dev pcre2-dev yaml-dev \
 	db-dev unixodbc-dev \
 	libice-dev libjpeg-turbo-dev \
 	libxext-dev libxft-dev libxinerama-dev libxpm-dev libxt-dev \
