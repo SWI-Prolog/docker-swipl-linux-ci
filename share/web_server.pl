@@ -210,6 +210,8 @@ build_status(OS, Tag, Config, Branches, Builds, Status) :-
 build_status(_OS, _Tag, _Config, _Branches, _Builds, unknown).
 
 event_status(Data, Status),
+    _{ event:start } :< Data                   => Status = starting.
+event_status(Data, Status),
     _{ event:failed } :< Data                  => Status = failed.
 event_status(Data, Status),
     _{ event:passed, stage:test } :< Data      => Status = passed.
